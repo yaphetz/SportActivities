@@ -1,0 +1,103 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<Employee> SignInManager
+@inject UserManager<Employee> UserManager
+
+@{
+    ViewData["Title"] = "Approved Activities";
+}
+
+<h2>@ViewData["Title"]</h2>
+
+
+<div class="demo-container">
+    <div id="approvedContainer"></div>
+</div>
+
+<script>
+
+    var customDataSource;
+
+    $(function () {
+        customDataSource = new DevExpress.data.CustomStore({
+            key: "ActivityId",
+            load: function (loadOptions) {
+                return $.getJSON("/Home/ApprovedActivities")
+                    .fail(function () { throw "Data loading error" });
+            },
+        });
+    });
+
+    $(function () {
+        function logEvent(eventName) {
+            var logList = $("#events ul"),
+                newItem = $("<li>", { text: eventName });
+
+            logList.prepend(newItem);
+        }
+
+        $("#approvedContainer").dxDataGrid({
+            dataSource: customDataSource,
+            keyExpr: "ActivityId",
+            showBorders: true,
+            paging: {
+                enabled: false
+            },
+            editing: {
+                mode: "row",
+            },
+            columns: [
+
+                {
+                    dataField: "Name",
+                    caption: "Activity Name"
+                },
+
+                {
+                    type: "buttons",
+                    buttons: [{
+                        text: "Choose",
+                        hint: "Choose an activity",
+                        onClick: function (e) {
+
+                            $.ajax({
+                                url: "/Home/HasApprovedSelected/" + e.row.data.ActivityId,
+                                method: 'GET',
+                                //dataType: text,
+                                success: function (data) {
+                                    var message = 'Confirm selection?';
+                                    if (data == true) {
+                                        message = 'You already have an approved sport selected. Confirm the change?';
+                                    }
+
+                                    if (confirm(message)) {
+
+                                        return $.ajax({
+
+                                            url: "/Home/SetDefaultActivityId/" + e.row.data.ActivityId,
+                                            success: function () {
+
+                                                alert('Congratulations! You updated your approved activity!')
+                                            },
+                                            error: function () { throw "Update failed." }
+                                        });
+                                    }
+
+                                }
+
+                            });
+                        },
+                    }
+                    ]
+                }
+            ],
+        });
+
+        $("#clear").dxButton({
+            text: "Clear",
+            onClick: function () {
+                $("#events ul").empty();
+            }
+        });
+    });
+
+</script>

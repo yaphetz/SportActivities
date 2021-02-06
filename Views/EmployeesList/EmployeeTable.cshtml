@@ -1,0 +1,241 @@
+﻿
+@{
+    ViewData["Title"] = "Employees List";
+}
+<h1>@ViewData["Title"]</h1>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/7.4.0/polyfill.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.1.1/exceljs.min.js"></script>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.2/FileSaver.min.js"></script>
+
+<div class="demo-container">
+    <div id="employeesContainer"></div>
+    <div id="action-add"></div>
+    <div id="action-remove"></div>
+    <div id="action-edit"></div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/babel-polyfill/7.4.0/polyfill.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.1.1/exceljs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.2/FileSaver.min.js"></script>
+<script>
+    $(function () {
+        var selectedRowIndex = -1;
+
+        var addSDA = $("#action-add").dxSpeedDialAction({
+            label: "Add row",
+            icon: "add",
+            index: 1,
+            onClick: function () {
+                grid.addRow();
+                grid.deselectAll();
+            }
+        }).dxSpeedDialAction("instance");
+
+        var deleteSDA = $("#action-remove").dxSpeedDialAction({
+            icon: "trash",
+            label: "Delete row",
+            index: 2,
+            visible: false,
+            onClick: function () {
+                grid.deleteRow(selectedRowIndex);
+                grid.deselectAll();
+            }
+        }).dxSpeedDialAction("instance");
+
+        var editSDA = $("#action-edit").dxSpeedDialAction({
+            label: "Edit row",
+            icon: "edit",
+            index: 3,
+            visible: false,
+            onClick: function () {
+                grid.editRow(selectedRowIndex);
+                grid.deselectAll();
+            }
+        }).dxSpeedDialAction("instance");
+
+        var customStore = new DevExpress.data.CustomStore({
+            key: "Id",
+            load: function (loadOptions) {
+                var deferred = $.Deferred();
+                $.get("/EmployeesList/Get", loadOptions).done(function (response) {
+                    deferred.resolve({ data: response.data, totalCount: response.totalCount });
+                });
+                return deferred.promise();
+            },
+            insert: function (values) {
+                return sendRequest("/EmployeesList/Create", "POST", {
+                    values: JSON.stringify(values)
+                });
+            },
+            update: function (key, values) {
+                return sendRequest("/EmployeesList/Update/" + encodeURIComponent(key), "PUT", {
+                    values: JSON.stringify(values)
+                });
+
+            },
+            remove: function (key) {
+                return $.ajax({
+                    url: "/EmployeesList/Delete/" + encodeURIComponent(key),
+                    method: "DELETE",
+                    error: function () { throw "Deletion failed" }
+                });
+            },
+        });
+        var data = new DevExpress.data.DataSource({
+            store: customStore,
+            //onBeforeSend: function (method, ajaxOptions) {
+            //    beforeSend(method, ajaxOptions);
+            //}
+        });
+        var grid = $("#employeesContainer").dxDataGrid({
+            dataSource: data,
+            remoteOperations: true,
+            repaintChangesOnly: true,
+            scrolling: {
+                mode: "virtual"
+            },
+            height: 600,
+            showBorders: true,
+            selection: {
+                mode: "single"
+            },
+            paging: {
+                enabled: false
+            },
+            editing: {
+
+                refreshMode: "reshape",
+                mode: "row",
+
+                //allowAdding: true,
+                //allowUpdating: true,
+                //allowDeleting: true
+
+            },
+            onSelectionChanged: function (e) {
+                selectedRowIndex = e.component.getRowIndexByKey(e.selectedRowKeys[0]);
+
+                deleteSDA.option("visible", selectedRowIndex !== -1);
+                editSDA.option("visible", selectedRowIndex !== -1);
+            },
+            export: {
+                enabled: true,
+            },
+            onExporting: function (e) {
+                var workbook = new ExcelJS.Workbook();
+                var worksheet = workbook.addWorksheet('Main sheet');
+                DevExpress.excelExporter.exportDataGrid({
+                    worksheet: worksheet,
+                    component: e.component,
+                    customizeCell: function (options) {
+                        var excelCell = options;
+                        excelCell.font = { name: 'Arial', size: 12 };
+                        excelCell.alignment = { horizontal: 'left' };
+                    }
+                }).then(function () {
+                    workbook.xlsx.writeBuffer().then(function (buffer) {
+                        saveAs(new Blob([buffer], { type: 'application/octet-stream' }), 'DataGrid.xlsx');
+                    });
+                });
+                e.cancel = true;
+            },
+
+
+
+            columns: [
+
+                {
+                    dataField: "FirstName",
+                    validationRules: [{ type: "required" }]
+                },
+                {
+                    dataField: "LastName",
+                    validationRules: [{ type: "required" }]
+                   
+                },
+                {
+                    dataField: "Email",
+                    validationRules: [{ type: "required" }, {
+                        type: "pattern",
+                        message: 'The email is invalid!',
+                        pattern: /@@+(peoplepower.ro)$/
+                    }]
+                },
+
+              
+                {
+                    dataField: "DefaultActivity",
+                    allowEditing: false
+                  
+                  
+                },
+
+
+                {
+                    dataField: "FirstActivity",
+                    allowEditing: false
+           
+                }
+                ]
+      
+        }).dxDataGrid("instance");
+
+        function sendRequest(url, method, data) {
+            var d = $.Deferred();
+
+            method = method || "GET";
+
+            logRequest(method, url, data);
+
+            $.ajax(url, {
+                method: method || "GET",
+                data: data,
+                cache: false,
+                xhrFields: { withCredentials: true }
+            }).done(function (result) {
+                d.resolve(method === "GET" ? result.data : result);
+            }).fail(function (xhr) {
+                d.reject(xhr.responseJSON ? xhr.responseJSON.Message : xhr.statusText);
+            });
+
+            return d.promise();
+        }
+
+        function logRequest(method, url, data) {
+            var args = Object.keys(data || {}).map(function (key) {
+                return key + "=" + data[key];
+            }).join(" ");
+
+            var logList = $("#requests ul"),
+                time = DevExpress.localization.formatDate(new Date(), "HH:mm:ss"),
+                newItem = $("<li>").text([time, method, url.slice(URL.length), args].join(" "));
+
+            logList.prepend(newItem);
+        }
+
+        function getActivity(rowData) {
+            $.ajax({
+                url: "/EmployeesList/GetEmployeeDefaultChoice/" + rowData.Id,
+                method: "GET",
+                error: function () { throw "GetDefaultChoice failed" }
+            }
+            ).done(function (res) {
+                var val = res.data.length > 0 ? res.data[0].DefaultActivity : "";
+                return val;
+            });
+        }
+
+    });
+
+</script>
+
+<style>
+    .dx-overlay-content.dx-resizable {
+        transform: translate(1450%, 1400%) !important;
+    }
+
+    .dx-overlay-content.dx-resizable {
+        transform: translate(80vw, 70vh) !important;
+    }
+</style>

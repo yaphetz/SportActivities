@@ -1,0 +1,204 @@
+﻿@{
+    ViewData["Title"] = "Pending Activities";
+}
+
+
+
+<h2>@ViewData["Title"]</h2>
+
+
+<div class="dx-viewport demo-container">
+
+    <div id="gridContainer"></div>
+
+</div>
+
+<script>
+    var customDataSource;
+
+    $(function () {
+        customDataSource = new DevExpress.data.CustomStore({
+            key: "ActivityId",
+            load: function (loadOptions) {
+                return $.getJSON("/Home/WaitingForApprovalActivities")
+                    .fail(function () { throw "Data loading error" });
+            },
+            insert: function (values) {
+                return $.ajax({
+                    url: "/Home/AddNewActivity",
+                    method: "POST",
+                    data: values
+                });
+            }
+
+
+        });
+    });
+
+    function hrCheck() {
+            if (@User.IsInRole("admin").ToString().ToLowerInvariant() && !@ViewBag.Message.ToString().ToLowerInvariant())
+                    return true;
+            return false;
+    }
+
+    $(function () {
+
+        $("#gridContainer").dxDataGrid({
+            dataSource: customDataSource,
+            keyExpr: "ActivityId",
+            showBorders: true,
+            paging: {
+                enabled: false
+            },
+            editing: {
+                mode: "row",
+                allowUpdating: true,
+                allowDeleting: true,
+                allowAdding: true
+            },
+            columns: [
+                {
+                    dataField: "Name",
+                    caption: "Activity Name",
+                    validationRules: [{ type: "required" }]
+                },
+
+                {
+                    //Choose button
+                    type: "buttons",
+                    buttons: [{
+                        text: "Choose",
+                        name: "choose",
+                        hint: "Choose an activity",
+                        visible: function (e) {
+                            return !e.row.isInserting && !e.row.isEditing && !hrCheck();
+                        },
+                        onClick: function (e) {
+                            //return $.ajax({
+                            //    url: "/Home/SetFirstActivityId/" + e.row.data.ActivityId,
+                            //    success: function () { alert('Congratulations! You just chose your first activity!') },
+                            //    error: function () { throw "The choice failed." }
+                            //});
+                            $.ajax({
+                                url: "/Home/HasPendingSelected/" + e.row.data.ActivityId,
+                                method: 'GET',
+                                //dataType: text,
+                                success: function (data) {
+                                    var message = 'Confirm selection?';
+                                    if (data == true) {
+                                        message = 'You already have a pending sport selected. Confirm the change?';
+                                    }
+
+                                    if (confirm(message)) {
+
+                                        return $.ajax({
+
+                                            url: "/Home/SetFirstActivityId/" + e.row.data.ActivityId,
+                                            success: function () {
+
+                                                alert('Congratulations! You updated your chosen pending activity!')
+                                            },
+                                            error: function () { throw "Update failed." }
+                                        });
+                                    }
+
+                                }
+
+                            });
+                        },
+                    },
+                    //Approve button
+                    {
+                        text: "Approve",
+                        hint: "Approve an entry",
+                        visible: hrCheck(),
+                        onClick: function (e) {
+                            return $.ajax({
+                                url: "/Home/AproveActivity/" + e.row.data.ActivityId,
+                                success: function () {
+                                    alert('Activity approved'),
+                                    $("#gridContainer").dxDataGrid("instance").refresh();
+                                },
+                                error: function () { throw "Approve failed" }
+                            });
+
+                        },
+                    },
+                    //Reject button
+                    {
+                        text: "Reject",
+                        hint: "Reject an entry",
+                        visible: hrCheck(),
+                        onClick: function (e) {
+                            return $.ajax({
+                                url: "/Home/RejectActivity/" + e.row.data.ActivityId,
+                                success: function () {
+                                    alert('Activity rejected'),
+                                    $("#gridContainer").dxDataGrid("instance").refresh();  
+                                },
+                                error: function () { throw "Reject failed" }
+                            });
+                        },
+                    }
+                    ]
+                }
+            ],
+                       
+        });
+
+
+        $("#clear").dxButton({
+            text: "Clear",
+            onClick: function () {
+                $("#events ul").empty();
+            }
+        });
+    });
+
+</script>
+
+<style>
+    #events {
+        background-color: rgba(191, 191, 191, 0.15);
+        padding: 20px;
+        margin-top: 20px;
+    }
+
+        #events > div {
+            padding-bottom: 5px;
+        }
+
+            #events > div:after {
+                content: "";
+                display: table;
+                clear: both;
+            }
+
+        #events #clear {
+            float: right;
+        }
+
+        #events .caption {
+            float: left;
+            font-weight: bold;
+            font-size: 115%;
+            line-height: 115%;
+            padding-top: 7px;
+        }
+
+        #events ul {
+            list-style: none;
+            max-height: 100px;
+            overflow: auto;
+            margin: 0;
+        }
+
+            #events ul li {
+                padding: 7px 0;
+                border-bottom: 1px solid #dddddd;
+            }
+
+                #events ul li:last-child {
+                    border-bottom: none;
+                }
+</style>

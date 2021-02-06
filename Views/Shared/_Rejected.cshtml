@@ -1,0 +1,82 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<Employee> SignInManager
+@inject UserManager<Employee> UserManager
+
+@{
+    ViewData["Title"] = "Rejected Activities";
+}
+
+
+<h2>@ViewData["Title"]</h2>
+
+
+<div class="demo-container">
+    <div id="rejectedContainer"></div>
+</div>
+
+<script>
+    var customDataSource;
+    $(function () {
+        customDataSource = new DevExpress.data.CustomStore({
+            key: "ActivityId",
+            load: function (loadOptions) {
+                return $.getJSON("/Home/RejectedActivities")
+                    .fail(function () { throw "Data loading error" });
+            },
+            remove: function (key) {
+                return $.ajax({
+                    url: "/Home/DeleteActivity/" + key,
+                    method: "DELETE",
+                    success: function () { alert('Activity deleted') },
+                    error: function () { throw "Deletion failed" }
+                });
+            },
+        });
+    });
+    $(function () {
+        function logEvent(eventName) {
+            var logList = $("#events ul"),
+                newItem = $("<li>", { text: eventName });
+
+            logList.prepend(newItem);
+        }
+
+        function hrCheck() {
+            if (@User.IsInRole("admin").ToString().ToLowerInvariant())
+                    return true;
+            return false;
+        }
+
+        $("#rejectedContainer").dxDataGrid({
+            dataSource: customDataSource,
+            keyExpr: "ActivityId",
+            showBorders: true,
+            paging: {
+                enabled: false
+            },
+            editing: {
+                mode: "row",
+                allowDeleting: hrCheck(),
+            },
+            columns: [{
+                dataField: "Name",
+                caption: "Activity Name"
+            }
+            ],
+            onRowRemoving: function (e) {
+                logEvent("RowRemoving");
+            },
+            onRowRemoved: function (e) {
+                logEvent("RowRemoved");
+            }
+        });
+
+        @*
+        $("#clear").dxButton({
+            text: "Clear",
+            onClick: function () {
+                $("#events ul").empty();
+            }
+        });*@
+    });
+</script>

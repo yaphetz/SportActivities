@@ -1,0 +1,47 @@
+﻿@using Microsoft.AspNetCore.Identity
+@inject SignInManager<Employee> SignInManager
+@inject UserManager<Employee> UserManager
+
+@{
+    ViewBag.Message = true;
+}
+
+@if (SignInManager.IsSignedIn(User))
+{
+    <div class="text-center">
+        <h2 class="display-4">Info</h2>
+        <p>
+            You will need to choose or add a sports activity that you want to perform, as you can see there are 3 tables, 1 including the default activities
+            the other one the Pending Activities (requested by employees) and the last table will display all of the activities that the HR rejected.
+        </p><br />
+    </div>
+    <div class="row">
+
+        <div class="col-sm">
+            <partial name="_Approved" />
+        </div>
+        <div class="col-sm">
+            <partial name="_PendingActivities" />
+        </div>
+    </div>
+    <div class="row">
+        <div class="col">
+            <partial name="_Rejected" />
+        </div>
+
+    </div>
+}
+else
+{
+<div class="text-center">
+    <img src="~/images/pplogo.jpeg" /><br />
+    <p>You will need to login in order to see the Sport Activities page here:</p>
+    <a asp-area="Identity" asp-page="/Account/Login"><button type="button" class="btn btn-secondary">LOGIN</button></a>
+</div>
+}
+
+<style>
+    .dx-button-has-text .dx-button-content {
+        padding: 7px 40px 8px !important;
+    }
+</style>
